@@ -3,6 +3,7 @@ import "~/styles/globals.css";
 import { type Metadata } from "next";
 // font for AirTable
 import localFont from "next/font/local";
+import { Inter } from "next/font/google";
 
 import { TRPCReactProvider } from "~/trpc/react";
 
@@ -16,11 +17,16 @@ const SegoeUI = localFont({
   src: "../../public/fonts/Segoe UI.ttf",
 });
 
+export const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={SegoeUI.className}>
+    <html lang="en" className={`${SegoeUI.className} ${inter.variable}`}>
       <body>
         <TRPCReactProvider>{children}</TRPCReactProvider>
       </body>
