@@ -17,7 +17,7 @@ const SegoeUI = localFont({
   src: "../../public/fonts/Segoe UI.ttf",
 });
 
-export const inter = Inter({
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
