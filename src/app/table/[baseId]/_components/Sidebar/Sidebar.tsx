@@ -7,7 +7,7 @@ import AccountMenuButton from "./AccountMenuButton";
 
 export default function Sidebar() {
   return (
-    <aside className="flex h-screen w-[55px] flex-col items-center justify-between border-r border-gray-200 bg-white px-[8px] py-[16px]">
+    <aside className="sticky top-0 row-span-2 flex h-screen flex-col items-center justify-between border-r border-gray-200 bg-white px-[8px] py-[16px]">
       <div className="flex flex-col items-center gap-4">
         <BackButton />
       </div>

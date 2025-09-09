@@ -17,7 +17,7 @@ model User {
     accounts      Account[]
     sessions      Session[]
 
-    projects Project[]
+    projects      Project[]
 }
 
 model Account {
@@ -35,7 +35,7 @@ model Account {
   id_token          String?  @db.Text
   session_state     String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
 }
@@ -46,7 +46,7 @@ model Session {
   userId       String
   expires      DateTime
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Project {
@@ -60,5 +60,73 @@ model Project {
 
     user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+    tables          Table[]
+
     @@index([userId])
+}
+
+enum ColumnType {
+    text
+    number
+}
+
+model Table {
+    id         String         @id @default(cuid())
+    projectId  String
+    name       String         @default("Untitled Table")
+    createdAt  DateTime       @default(now())
+    updatedAt  DateTime       @updatedAt
+
+    project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+    columns    TableColumn[]
+    rows       TableRow[]
+    views      TableView[]
+
+    @@index([projectId])
+}
+
+model TableColumn {
+  id        String     @id @default(cuid())
+  tableId   String
+  name      String
+  key       String  
+  type      ColumnType
+  position  Int      
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  table Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@unique([tableId, key])
+  @@index([tableId, position])
+}
+
+model TableRow {
+  id             String    @id @default(cuid())
+  tableId        String
+  // All cell values live here by column key:
+  // e.g. { "col_name": "Acme", "col_amount": 123.45 }
+  data           Json
+  lastAccessedAt DateTime  @default(now())
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  table Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@index([tableId, updatedAt])
+  @@index([tableId, createdAt])
+}
+
+model TableView {
+  id        String   @id @default(cuid())
+  tableId   String
+  name      String   @default("Grid view")
+  // JSON config: { search: string, hidden: string[], filters: [...], sorts: [...] }
+  config    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  table Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+  @@index([tableId])
 }

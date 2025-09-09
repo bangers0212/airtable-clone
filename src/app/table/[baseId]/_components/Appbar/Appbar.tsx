@@ -15,7 +15,7 @@ export default function Appbar() {
   ];
 
   return (
-    <div className="flex h-14 items-center justify-between border-b border-gray-200">
+    <div className="sticky top-0 col-start-2 flex items-center justify-between border-b border-gray-200 bg-white">
       <ProjectDropdown />
       <Tabs tabs={headerTabs} />
       <div className="mr-4 flex gap-2">
