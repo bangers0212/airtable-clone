@@ -12,9 +12,14 @@ import Image from "next/image";
 import EditableCell from "./EditableCell";
 import AddColumnHeader from "./AddColumnHeader";
 import AddRowEnd from "./AddRowEnd";
+import HeaderContextMenu, { type HeaderMenuState } from "./HeaderContextMenu";
+import { api } from "~/trpc/react";
 
 type ColMeta = {
   colType: ColumnType;
+  columnId: string;
+  columnKey: string;
+  columnName: string;
 };
 
 export default function TableData({
@@ -29,6 +34,22 @@ export default function TableData({
   projectId: string;
 }) {
   //   const [rowSelection, setRowSelection] = useState({});
+
+  const utils = api.useUtils();
+  const deleteColumn = api.table.deleteColumn.useMutation({
+    onSuccess: async () => {
+      // easiest: refresh project data
+      await utils.project.getById.invalidate({ id: projectId });
+    },
+    onError: (e) => alert(e.message),
+  });
+
+  const [menu, setMenu] = React.useState<HeaderMenuState>({
+    open: false,
+    x: 0,
+    y: 0,
+  });
+
   const columns = React.useMemo<ColumnDef<TableRow, unknown>[]>(
     () =>
       cols.map((col) => ({
@@ -57,7 +78,6 @@ export default function TableData({
         cell: (info) => {
           const value = info.getValue();
           const meta = info.column.columnDef.meta as ColMeta | undefined;
-
           return (
             <EditableCell
               rowId={info.row.original.id}
@@ -67,7 +87,12 @@ export default function TableData({
             />
           );
         },
-        meta: { colType: col.type } satisfies ColMeta,
+        meta: {
+          colType: col.type,
+          columnId: col.id,
+          columnKey: col.key,
+          columnName: col.name,
+        } satisfies ColMeta,
       })),
     [cols],
   );
@@ -90,16 +115,32 @@ export default function TableData({
                     <div className="h-5 w-5 rounded border-1 border-gray-200 shadow" />
                   </div>
                 </th>
-                {hg.headers.map((h) => (
-                  <th
-                    key={h.id}
-                    className="sticky top-0 z-10 h-8 max-w-[180px] min-w-[180px] border-r border-gray-200 bg-white px-3 font-medium shadow-[inset_0_-1px_0_0_#d1d5db] hover:bg-gray-50"
-                  >
-                    {h.isPlaceholder
-                      ? null
-                      : flexRender(h.column.columnDef.header, h.getContext())}
-                  </th>
-                ))}
+                {hg.headers.map((h) => {
+                  const meta = h.column.columnDef.meta as ColMeta;
+                  return (
+                    <th
+                      key={h.id}
+                      className="sticky top-0 z-10 h-8 max-w-[180px] min-w-[180px] border-r border-gray-200 bg-white px-3 font-medium shadow-[inset_0_-1px_0_0_#d1d5db] hover:bg-gray-50"
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        // open context menu next to cursor
+                        setMenu({
+                          open: true,
+                          x: e.clientX,
+                          y: e.clientY,
+                          columnId: meta.columnId,
+                          columnName: meta.columnName,
+                          tableId,
+                        });
+                      }}
+                      title={`${meta.columnName} — right click for options`}
+                    >
+                      {h.isPlaceholder
+                        ? null
+                        : flexRender(h.column.columnDef.header, h.getContext())}
+                    </th>
+                  );
+                })}
               </tr>
             ))}
           </thead>
@@ -147,6 +188,18 @@ export default function TableData({
         </table>
         <AddColumnHeader tableId={tableId} />
       </div>
+
+      <HeaderContextMenu
+        state={menu}
+        onClose={() => setMenu((s) => ({ ...s, open: false }))}
+        onDelete={() => {
+          if (!menu.columnId) return;
+          deleteColumn.mutate({
+            tableId,
+            columnId: menu.columnId,
+          });
+        }}
+      />
     </div>
   );
 }

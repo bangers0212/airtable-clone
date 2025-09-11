@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { type JsonValue } from "@prisma/client/runtime/library";
 import { ColumnType } from "@prisma/client";
+import { text } from "stream/consumers";
 
 export const tableRouter = createTRPCRouter({
   updateRowData: protectedProcedure
@@ -115,6 +116,34 @@ export const tableRouter = createTRPCRouter({
             data,
             position,
           },
+        });
+      });
+    }),
+  deleteColumn: protectedProcedure
+    .input(z.object({ tableId: z.string(), columnId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.$transaction(async (tx) => {
+        // find col key
+        const col = await tx.tableColumn.findFirst({
+          where: { id: input.columnId, tableId: input.tableId },
+          select: { id: true, key: true },
+        });
+        if (!col) throw new Error("Column not found");
+
+        // remove key from json
+        await tx.$executeRawUnsafe(
+          `
+          UPDATE "TableRow"
+          SET "data" = "data" - $1
+          WHERE "tableId" = $2
+          `,
+          col.key,
+          input.tableId,
+        );
+
+        // remove col record
+        await tx.tableColumn.delete({
+          where: { id: input.columnId },
         });
       });
     }),
