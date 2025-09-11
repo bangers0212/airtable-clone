@@ -52,11 +52,9 @@ model Session {
 model Project {
     id              String @id @default(cuid())
     userId          String
-    name            String   @default("Untitled Base")
-    color           String   @default("#808080")
+    name            String
+    color           String
     lastAccessedAt  DateTime @default(now())
-    createdAt       DateTime @default(now())
-    updatedAt       DateTime @updatedAt
 
     user            User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -66,62 +64,58 @@ model Project {
 }
 
 enum ColumnType {
-    text
-    number
+    TEXT
+    NUMBER
 }
 
 model Table {
     id         String         @id @default(cuid())
     projectId  String
-    name       String         @default("Untitled Table")
-    createdAt  DateTime       @default(now())
-    updatedAt  DateTime       @updatedAt
+    name       String
 
     project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
     columns    TableColumn[]
     rows       TableRow[]
     views      TableView[]
+    
+    nextRowPos   Int   @default(0)
+    nextColPos   Int   @default(0)
 
     @@index([projectId])
 }
 
 model TableColumn {
-  id        String     @id @default(cuid())
-  tableId   String
-  name      String
-  key       String  
-  type      ColumnType
-  position  Int      
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+    id        String     @id @default(cuid())
+    tableId   String
+    name      String
+    key       String  
+    type      ColumnType
+    position  Int   
 
-  table Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
+    table Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
-  @@unique([tableId, key])
-  @@index([tableId, position])
+    @@unique([tableId, key])
+    @@unique([tableId, position])
+    @@index([tableId, position])
 }
 
 model TableRow {
-  id             String    @id @default(cuid())
-  tableId        String
-  // All cell values live here by column key:
-  // e.g. { "col_name": "Acme", "col_amount": 123.45 }
-  data           Json
-  lastAccessedAt DateTime  @default(now())
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+    id             String    @id @default(cuid())
+    tableId        String
+    data           Json
+    position       Int
 
-  table Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
+    table          Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
 
-  @@index([tableId, updatedAt])
-  @@index([tableId, createdAt])
+    @@unique([tableId, position])
+    @@index([tableId, position])
 }
 
 model TableView {
   id        String   @id @default(cuid())
   tableId   String
   name      String   @default("Grid view")
-  // JSON config: { search: string, hidden: string[], filters: [...], sorts: [...] }
+  // { search?: string, hidden?: string[], filters?: [...], sorts?: [...] }
   config    Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

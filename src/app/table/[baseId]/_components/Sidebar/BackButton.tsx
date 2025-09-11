@@ -2,11 +2,14 @@
 
 import { FaArrowLeftLong } from "react-icons/fa6";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function BackButton() {
+  const router = useRouter();
   return (
     <button
       aria-label="Back"
+      onClick={() => router.push("/dashboard")}
       className="group relative flex h-[24px] w-[24px] cursor-pointer items-center justify-center overflow-visible"
     >
       <Image

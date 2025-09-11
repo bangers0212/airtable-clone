@@ -39,7 +39,7 @@ export default function ProjectsGrid() {
             <li key={p.id}>
               <Link
                 className="flex h-[92px] items-center gap-3 rounded border-1 border-gray-300 bg-white p-3 shadow-sm hover:shadow"
-                href={`/table`}
+                href={`/table/${p.id}`}
               >
                 <div
                   className="flex h-[56px] w-[56px] items-center justify-center rounded-lg text-2xl text-white"

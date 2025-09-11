@@ -1,48 +1,47 @@
 "use client";
 
 import * as React from "react";
-import type { Col } from "./TableData";
 import type { SortingState, VisibilityState } from "@tanstack/react-table";
+import type { TableColumn } from "@prisma/client";
 
 export default function TableToolbar({
   cols,
-  columnVisibility,
-  onColumnVisibilityChange,
-  sorting,
-  onSortingChange,
+  //   columnVisibility,
+  //   onColumnVisibilityChange,
+  //   sorting,
+  //   onSortingChange,
 }: {
-  cols: Col[];
-  columnVisibility: VisibilityState;
-  onColumnVisibilityChange: (v: VisibilityState) => void;
-  sorting: SortingState;
-  onSortingChange: (s: SortingState) => void;
+  cols: TableColumn[];
+  //   columnVisibility: VisibilityState;
+  //   onColumnVisibilityChange: (v: VisibilityState) => void;
+  //   sorting: SortingState;
+  //   onSortingChange: (s: SortingState) => void;
 }) {
-  const [hideOpen, setHideOpen] = React.useState(false);
-  const [sortOpen, setSortOpen] = React.useState(false);
+  //   const [hideOpen, setHideOpen] = React.useState(false);
+  //   const [sortOpen, setSortOpen] = React.useState(false);
 
-  const currentSort = sorting[0];
-  const [sortCol, setSortCol] = React.useState<string>(currentSort?.id ?? "");
-  const [sortDir, setSortDir] = React.useState<"asc" | "desc">(
-    currentSort?.desc ? "desc" : "asc",
-  );
+  //   const currentSort = sorting[0];
+  //   const [sortCol, setSortCol] = React.useState<string>(currentSort?.id ?? "");
+  //   const [sortDir, setSortDir] = React.useState<"asc" | "desc">(
+  //     currentSort?.desc ? "desc" : "asc",
+  //   );
 
-  React.useEffect(() => {
-    if (!currentSort) return;
-    setSortCol(currentSort.id);
-    setSortDir(currentSort.desc ? "desc" : "asc");
-  }, [currentSort]);
+  //   React.useEffect(() => {
+  //     if (!currentSort) return;
+  //     setSortCol(currentSort.id);
+  //     setSortDir(currentSort.desc ? "desc" : "asc");
+  //   }, [currentSort]);
 
   return (
     <div className="flex items-center gap-2 border-b border-gray-200 bg-white px-3 py-2">
-      {/* Hide fields */}
       <div className="relative">
         <button
-          onClick={() => setHideOpen((v) => !v)}
+          //   onClick={() => setHideOpen((v) => !v)}
           className="rounded border border-gray-200 px-2 py-1 text-sm hover:bg-gray-50"
         >
           Hide fields
         </button>
-        {hideOpen && (
+        {/* {hideOpen && (
           <div
             className="absolute left-0 z-20 mt-2 w-56 rounded border border-gray-200 bg-white p-2 shadow"
             onMouseLeave={() => setHideOpen(false)}
@@ -79,18 +78,18 @@ export default function TableToolbar({
               })}
             </ul>
           </div>
-        )}
+        )} */}
       </div>
 
       {/* Sort */}
       <div className="relative">
         <button
-          onClick={() => setSortOpen((v) => !v)}
+          //   onClick={() => setSortOpen((v) => !v)}
           className="rounded border border-gray-200 px-2 py-1 text-sm hover:bg-gray-50"
         >
           Sort
         </button>
-        {sortOpen && (
+        {/* {sortOpen && (
           <div
             className="absolute left-0 z-20 mt-2 w-64 rounded border border-gray-200 bg-white p-3 shadow"
             onMouseLeave={() => setSortOpen(false)}
@@ -134,7 +133,7 @@ export default function TableToolbar({
               </button>
             </div>
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );
