@@ -176,6 +176,8 @@ export const tableRouter = createTRPCRouter({
         where: { id: table.id },
         data: { nextColPos: seedColumns.length, nextRowPos: seedRowsCount },
       });
+
+      return table;
     }),
   updateRowData: protectedProcedure
     .input(
