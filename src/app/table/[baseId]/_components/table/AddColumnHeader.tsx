@@ -5,6 +5,7 @@ import { useState } from "react";
 import { api } from "~/trpc/react";
 import { ColumnType } from "@prisma/client";
 import Image from "next/image";
+import type { JsonValue } from "@prisma/client/runtime/library";
 
 export default function AddColumnHeader({ tableId }: { tableId: string }) {
   const [isAddingColumn, setIsAddingColumn] = useState(false);
@@ -13,13 +14,76 @@ export default function AddColumnHeader({ tableId }: { tableId: string }) {
     ColumnType.TEXT,
   );
 
-  const addColumnMutation = api.table.addColumn.useMutation({
-    onSuccess: () => {
+  const utils = api.useUtils();
+
+  const addColumn = api.table.addColumn.useMutation({
+    onMutate: async ({ tableId, name, type }) => {
+      await utils.table.getTableInfo.cancel({ tableId });
+      await utils.table.getRowsForTable.cancel({ tableId });
+
+      const previousTableInfo = utils.table.getTableInfo.getData({ tableId });
+      const previousRowsData = utils.table.getRowsForTable.getInfiniteData({
+        tableId,
+      });
+
+      const tempColumn = {
+        id: `col-${crypto.randomUUID()}`,
+        tableId,
+        name: name,
+        key: name,
+        type: type,
+        position: Number.MAX_SAFE_INTEGER,
+      };
+
+      utils.table.getTableInfo.setData({ tableId }, (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          columns: [...oldData.columns, tempColumn],
+        };
+      });
+
+      utils.table.getRowsForTable.setInfiniteData({ tableId }, (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) => ({
+            ...page,
+            rows: page.rows.map((row) => ({
+              ...row,
+              data: {
+                ...(row.data as Record<string, JsonValue>),
+                [name]: null,
+              },
+            })),
+          })),
+        };
+      });
+
+      return { previousTableInfo, previousRowsData };
+    },
+    onError: (err, { tableId }, context) => {
+      // Rollback the cache.
+      if (context?.previousTableInfo) {
+        utils.table.getTableInfo.setData(
+          { tableId },
+          context.previousTableInfo,
+        );
+      }
+      if (context?.previousRowsData) {
+        utils.table.getRowsForTable.setInfiniteData(
+          { tableId },
+          context.previousRowsData,
+        );
+      }
+      // Since alert is not allowed, you could handle this with a toast or custom UI message.
+      console.error(err.message);
+    },
+    onSettled: async () => {
       setIsAddingColumn(false);
       setNewColumnName("");
-    },
-    onError: (error) => {
-      alert(error.message);
+      await utils.table.getTableInfo.invalidate({ tableId });
+      await utils.table.getRowsForTable.invalidate({ tableId });
     },
   });
 
@@ -27,7 +91,7 @@ export default function AddColumnHeader({ tableId }: { tableId: string }) {
     if (newColumnName.trim() === "") {
       return alert("Column name cannot be empty.");
     }
-    addColumnMutation.mutate({
+    addColumn.mutate({
       tableId,
       name: newColumnName,
       type: newColumnType,

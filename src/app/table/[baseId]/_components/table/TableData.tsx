@@ -14,6 +14,7 @@ import AddColumnHeader from "./AddColumnHeader";
 import AddRowEnd from "./AddRowEnd";
 import HeaderContextMenu, { type HeaderMenuState } from "./HeaderContextMenu";
 import { api } from "~/trpc/react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 type ColMeta = {
   colType: ColumnType;
@@ -23,25 +24,22 @@ type ColMeta = {
 };
 
 export default function TableData({
-  rows,
   cols,
   tableId,
   projectId,
 }: {
-  rows: TableRow[];
   cols: TableColumn[];
   tableId: string;
   projectId: string;
 }) {
-  //   const [rowSelection, setRowSelection] = useState({});
-
   const utils = api.useUtils();
   const deleteColumn = api.table.deleteColumn.useMutation({
     onSuccess: async () => {
-      // easiest: refresh project data
       await utils.project.getById.invalidate({ id: projectId });
     },
-    onError: (e) => alert(e.message),
+    onError: (e) => {
+      console.error(e.message);
+    },
   });
 
   const [menu, setMenu] = React.useState<HeaderMenuState>({
@@ -55,21 +53,22 @@ export default function TableData({
       cols.map((col) => ({
         id: col.key,
         header: () => (
-          <div className="flex items-center gap-2">
-            <span className="h-4 w-4 shrink-0">
-              <Image
-                src={
-                  col.type === ColumnType.NUMBER
-                    ? "/images/number.svg"
-                    : "/images/text.svg"
-                }
-                width={16}
-                height={16}
-                alt=""
-              />
-            </span>
-            <span className="truncate">{col.name}</span>
-          </div>
+          <></>
+          //   <div className="flex items-center gap-2">
+          //     <span className="h-4 w-4 shrink-0">
+          //       <Image
+          //         src={
+          //           col.type === ColumnType.NUMBER
+          //             ? "/images/number.svg"
+          //             : "/images/text.svg"
+          //         }
+          //         width={16}
+          //         height={16}
+          //         alt=""
+          //       />
+          //     </span>
+          //     <span className="truncate">{col.name}</span>
+          //   </div>
         ),
         accessorFn: (row) => {
           const data = row.data as Record<string, unknown> | null;
@@ -84,6 +83,7 @@ export default function TableData({
               columnKey={col.key}
               value={value as string | number}
               type={meta?.colType ?? ColumnType.TEXT}
+              tableId={tableId}
             />
           );
         },
@@ -94,91 +94,158 @@ export default function TableData({
           columnName: col.name,
         } satisfies ColMeta,
       })),
-    [cols],
+    [cols, tableId],
+  );
+
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
+    api.table.getRowsForTable.useInfiniteQuery(
+      { tableId },
+      { getNextPageParam: (lastPage) => lastPage.nextCursor },
+    );
+
+  const flatRows = React.useMemo(
+    () => data?.pages.flatMap((page) => page.rows) ?? [],
+    [data],
   );
 
   const table = useReactTable({
-    data: rows,
+    data: flatRows,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    getRowId: (row) => row.id,
   });
 
+  const tableContainerRef = React.useRef<HTMLDivElement>(null);
+
+  console.log(flatRows);
+
+  const rowVirtualizer = useVirtualizer({
+    count: flatRows.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 32,
+  });
+
+  React.useEffect(() => {
+    const [lastItem] = [...rowVirtualizer.getVirtualItems()].reverse();
+    if (!lastItem) return;
+    console.log("FIRED");
+
+    if (
+      lastItem.index >= flatRows.length - 1 &&
+      hasNextPage &&
+      !isFetchingNextPage
+    ) {
+      void fetchNextPage();
+    }
+  }, [
+    rowVirtualizer,
+    fetchNextPage,
+    flatRows.length,
+    hasNextPage,
+    isFetchingNextPage,
+  ]);
+
+  const virtualRows = rowVirtualizer.getVirtualItems();
+
+  const headerGroup = table.getHeaderGroups()[0]!;
+
   return (
-    <div className="h-full overflow-auto bg-gray-100">
+    <div className="h-full overflow-auto bg-gray-100" ref={tableContainerRef}>
       <div className="flex min-w-fit pr-40 pb-20">
-        <table className="border-r border-b border-gray-200 bg-white text-sm">
-          <thead>
-            {table.getHeaderGroups().map((hg) => (
-              <tr key={hg.id}>
-                <th className="sticky top-0 z-10 h-8 max-w-[87px] min-w-[87px] bg-white font-medium shadow-[inset_0_-1px_0_0_#d1d5db]">
-                  <div className="flex h-full items-center justify-center">
-                    <div className="h-5 w-5 rounded border-1 border-gray-200 shadow" />
-                  </div>
-                </th>
-                {hg.headers.map((h) => {
-                  const meta = h.column.columnDef.meta as ColMeta;
-                  return (
-                    <th
-                      key={h.id}
-                      className="sticky top-0 z-10 h-8 max-w-[180px] min-w-[180px] border-r border-gray-200 bg-white px-3 font-medium shadow-[inset_0_-1px_0_0_#d1d5db] hover:bg-gray-50"
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        // open context menu next to cursor
-                        setMenu({
-                          open: true,
-                          x: e.clientX,
-                          y: e.clientY,
-                          columnId: meta.columnId,
-                          columnName: meta.columnName,
-                          tableId,
-                        });
-                      }}
-                      title={`${meta.columnName} — right click for options`}
-                    >
-                      {h.isPlaceholder
-                        ? null
-                        : flexRender(h.column.columnDef.header, h.getContext())}
-                    </th>
-                  );
-                })}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((r) => (
-              <tr key={r.id} className="group hover:bg-gray-50">
-                <td className="text flex h-8 items-center justify-center border-b border-gray-200 text-gray-500">
-                  <div className="flex h-full w-full items-center justify-center group-hover:justify-between">
-                    <span className="group-hover:hidden">{r.index + 1}</span>
-                    <Image
-                      src="/images/DotsSixVertical.svg"
-                      width={14}
-                      height={14}
-                      alt=""
-                      unoptimized
-                      className="hidden h-5 w-5 group-hover:block"
-                    />
-                    <div className="hidden h-5 w-5 rounded border-1 border-gray-200 bg-white shadow group-hover:block" />
-                    <Image
-                      src="/images/ArrowsOutSimple.svg"
-                      width={14}
-                      height={14}
-                      alt=""
-                      unoptimized
-                      className="hidden h-5 w-5 rounded bg-white shadow group-hover:block"
-                    />
-                  </div>
-                </td>
-                {r.getVisibleCells().map((cell) => (
-                  <td
-                    key={cell.id}
-                    className="h-8 max-w-[180px] min-w-[180px] cursor-default border-r border-b border-gray-200"
+        <table className="bg-white text-sm">
+          {/* headers */}
+          <thead className="sticky top-0 z-20 cursor-default bg-white">
+            <tr key={headerGroup.id}>
+              <th className="h-8 max-w-[87px] min-w-[87px] shadow-[inset_0_-1px_0_0_#d1d5db]">
+                <div className="flex h-full items-center justify-center">
+                  {/* checkbox stud */}
+                  <div className="h-5 w-5 rounded border-1 border-gray-200 shadow" />
+                </div>
+              </th>
+              {headerGroup.headers.map((h) => {
+                const meta = h.column.columnDef.meta as ColMeta;
+                return (
+                  <th
+                    key={h.id}
+                    className="h-8 max-w-[180px] min-w-[180px] border-r border-gray-200 px-3 font-medium shadow-[inset_0_-1px_0_0_#d1d5db] hover:bg-gray-50"
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      // context menu
+                      setMenu({
+                        open: true,
+                        x: e.clientX,
+                        y: e.clientY,
+                        columnId: meta.columnId,
+                        columnName: meta.columnName,
+                        tableId,
+                      });
+                    }}
+                    title={`${meta.columnName} — right click for options`}
                   >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    {h.isPlaceholder
+                      ? null
+                      : flexRender(h.column.columnDef.header, h.getContext())}
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          {/* <div className="h-10 w-10 border-r border-b bg-amber-500 shadow-[inset_0_-1px_0_0_#d1d5db] hover:bg-gray-50"></div>
+          <div className="h-10 w-10 border-r border-b bg-amber-500 shadow-[inset_0_-1px_0_0_#d1d5db] hover:bg-gray-50"></div> */}
+          <tbody
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              position: "relative",
+            }}
+          >
+            {virtualRows.map((vRow) => {
+              const row = table.getRowModel().rows[vRow.index]!;
+
+              return (
+                <tr
+                  key={row.id}
+                  className="group z-0 hover:bg-gray-50"
+                  data-index={vRow.index}
+                  ref={rowVirtualizer.measureElement}
+                >
+                  <td className="text flex h-8 items-center justify-center border-b border-gray-200 text-gray-500">
+                    <div className="flex h-full w-full items-center justify-center group-hover:justify-between">
+                      <span className="group-hover:hidden">
+                        {row.index + 1}
+                      </span>
+                      <Image
+                        src="/images/DotsSixVertical.svg"
+                        width={14}
+                        height={14}
+                        alt=""
+                        unoptimized
+                        className="hidden h-5 w-5 group-hover:block"
+                      />
+                      <div className="hidden h-5 w-5 rounded border-1 border-gray-200 bg-white shadow group-hover:block" />
+                      <Image
+                        src="/images/ArrowsOutSimple.svg"
+                        width={14}
+                        height={14}
+                        alt=""
+                        unoptimized
+                        className="hidden h-5 w-5 rounded bg-white shadow group-hover:block"
+                      />
+                    </div>
                   </td>
-                ))}
-              </tr>
-            ))}
+                  {row.getVisibleCells().map((cell) => (
+                    <td
+                      key={cell.id}
+                      className="h-8 max-w-[180px] min-w-[180px] cursor-default border-r border-b border-gray-200"
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
             <AddRowEnd
               tableId={tableId}
               projectId={projectId}

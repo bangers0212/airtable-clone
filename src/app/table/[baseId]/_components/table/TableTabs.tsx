@@ -14,7 +14,6 @@ export default function TableTabs({
   onAdd: () => void;
 }) {
   return (
-    // The row has the bottom border; tabs fill the row height
     <div className="flex h-8 items-stretch border-b border-gray-200 bg-gray-100">
       <ul role="tablist" aria-label="Tables" className="flex items-stretch">
         {tabs.map((t, i) => {

@@ -1,15 +1,18 @@
 "use client";
 
 import { ColumnType } from "@prisma/client";
+import type { JsonValue } from "@prisma/client/runtime/library";
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
 import { api } from "~/trpc/react";
+import type { TableRow } from "@prisma/client";
 
 type EditableCellProps = {
   rowId: string;
   columnKey: string;
   value: string | number | undefined;
   type: ColumnType;
+  tableId: string;
 };
 
 export default function EditableCell({
@@ -17,12 +20,57 @@ export default function EditableCell({
   columnKey,
   value,
   type,
+  tableId,
 }: EditableCellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [cellValue, setCellValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { mutate } = api.table.updateRowData.useMutation();
+  const utils = api.useUtils();
+
+  const updateRowDataMutation = api.table.updateRowData.useMutation({
+    onMutate: async (newRowData) => {
+      await utils.table.getRowsForTable.cancel({ tableId });
+
+      // from cache
+      const previousRows = utils.table.getRowsForTable.getData({
+        tableId,
+      });
+
+      // optimistic update
+      utils.table.getRowsForTable.setInfiniteData({ tableId }, (oldData) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          pages: oldData.pages.map((page) => ({
+            ...page,
+            rows: page.rows.map((row: TableRow) => {
+              if (row.id === newRowData.rowId) {
+                const updatedData = {
+                  ...(row.data as Record<string, JsonValue>),
+                  [newRowData.key]: newRowData.value,
+                };
+                return { ...row, data: updatedData };
+              }
+              return row;
+            }),
+          })),
+        };
+      });
+
+      return { previousRows };
+    },
+    onError: (err, newRowData, context) => {
+      // rollback
+      utils.table.getRowsForTable.setData({ tableId }, context?.previousRows);
+
+      console.error("Mutation failed:", err);
+    },
+    onSettled: () => {
+      // cache invalidate
+      void utils.table.getRowsForTable.invalidate({ tableId });
+    },
+  });
 
   useEffect(() => {
     setCellValue(value);
@@ -35,7 +83,7 @@ export default function EditableCell({
   const handleBlur = () => {
     setIsEditing(false);
     if (cellValue !== value) {
-      mutate({
+      updateRowDataMutation.mutate({
         rowId,
         key: columnKey,
         value:

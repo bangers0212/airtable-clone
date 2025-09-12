@@ -21,7 +21,7 @@ export const projectRouter = createTRPCRouter({
           },
         });
 
-        // table
+        // auto insert first table
         const table = await tx.table.create({
           data: {
             projectId: project.id,
@@ -93,14 +93,12 @@ export const projectRouter = createTRPCRouter({
         where: { id: input.id },
         include: {
           tables: {
-            include: {
-              columns: {
-                orderBy: { position: "asc" },
-              },
-              rows: {
-                orderBy: { position: "asc" },
-              },
-              views: true,
+            select: {
+              id: true,
+              name: true,
+            },
+            orderBy: {
+              createdAt: "asc",
             },
           },
         },
