@@ -70,12 +70,30 @@ export const projectRouter = createTRPCRouter({
         }));
         await tx.tableRow.createMany({ data: rowsData });
 
+        // default view
+        const defaultColumnVisibility = Object.fromEntries(
+          seedColumns.map((col) => [col.key, true]),
+        );
+
+        await tx.tableView.create({
+          data: {
+            tableId: table.id,
+            name: "Grid view",
+            position: 0,
+            sorting: [],
+            filters: [],
+            searchQuery: null,
+            columnVisibility: defaultColumnVisibility,
+          },
+        });
+
         // update counters for table
         await tx.table.update({
           where: { id: table.id },
           data: {
             nextColPos: seedColumns.length,
             nextRowPos: seedRowsCount,
+            nextViewPos: 1,
           },
         });
       });
@@ -86,11 +104,14 @@ export const projectRouter = createTRPCRouter({
       orderBy: { lastAccessedAt: "desc" },
     }),
   ),
-  getById: protectedProcedure
+  accessProject: protectedProcedure
     .input(z.object({ id: z.string() }))
-    .query(async ({ ctx, input }) => {
-      return ctx.db.project.findUnique({
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.project.update({
         where: { id: input.id },
+        data: {
+          lastAccessedAt: new Date(),
+        },
         include: {
           tables: {
             select: {

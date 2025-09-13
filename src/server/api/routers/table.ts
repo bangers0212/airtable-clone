@@ -18,6 +18,9 @@ export const tableRouter = createTRPCRouter({
           columns: {
             orderBy: { position: "asc" },
           },
+          views: {
+            orderBy: { position: "asc" },
+          },
         },
       });
     }),
@@ -29,6 +32,11 @@ export const tableRouter = createTRPCRouter({
         tableId: z.string(),
         limit: z.number().optional().default(300),
         cursor: z.number().nullish(),
+        sorting: z
+          .array(z.object({ id: z.string(), desc: z.boolean() }))
+          .optional(),
+        filters: z.array(z.number() /* your filter schema */).optional(),
+        searchQuery: z.string().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {

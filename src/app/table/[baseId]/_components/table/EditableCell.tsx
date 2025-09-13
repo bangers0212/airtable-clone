@@ -2,10 +2,10 @@
 
 import { ColumnType } from "@prisma/client";
 import type { JsonValue } from "@prisma/client/runtime/library";
-import * as React from "react";
 import { useState, useRef, useEffect } from "react";
 import { api } from "~/trpc/react";
 import type { TableRow } from "@prisma/client";
+import React from "react";
 
 type EditableCellProps = {
   rowId: string;
@@ -13,7 +13,33 @@ type EditableCellProps = {
   value: string | number | undefined;
   type: ColumnType;
   tableId: string;
+  rowIndex: number;
+  colKey: string;
 };
+
+function focusHorizontalSibling(
+  from: HTMLElement,
+  direction: "left" | "right",
+) {
+  // start from the td that wraps the current div
+  const td = from.closest("td");
+  if (!td) return;
+
+  let sib: Element | null = td;
+  while (sib) {
+    sib =
+      direction === "right"
+        ? sib.nextElementSibling
+        : sib.previousElementSibling;
+
+    // skip cells that don't host our focusable inner div
+    const target = sib?.querySelector<HTMLElement>("[data-col-key]");
+    if (target) {
+      target.focus();
+      return;
+    }
+  }
+}
 
 export default function EditableCell({
   rowId,
@@ -21,10 +47,96 @@ export default function EditableCell({
   value,
   type,
   tableId,
+  rowIndex,
+  colKey,
 }: EditableCellProps) {
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = React.useState(false);
   const [cellValue, setCellValue] = useState(value);
+
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing) {
+      inputRef.current?.focus();
+    }
+  }, [isEditing]);
+
+  useEffect(() => {
+    setCellValue(value);
+  }, [value]);
+
+  const handleBlur = () => {
+    if (cellValue !== value) {
+      updateRowDataMutation.mutate({
+        rowId,
+        key: columnKey,
+        value:
+          type === ColumnType.NUMBER ? Number(cellValue) : String(cellValue),
+      });
+    }
+    setIsEditing(false);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCellValue(e.target.value);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === "Escape" || e.key === "ArrowDown") {
+      inputRef.current?.blur();
+    } else {
+      inputRef.current?.focus();
+    }
+  };
+
+  const isPrintable = (e: React.KeyboardEvent) =>
+    e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+
+  const handleWrapperKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (isEditing) return;
+
+    switch (e.key) {
+      case "ArrowDown": {
+        e.preventDefault();
+        const nextRow = document.querySelector(
+          `[data-index="${rowIndex + 1}"]`,
+        );
+        const nextCell = nextRow?.querySelector(
+          `[data-col-key="${colKey}"]`,
+        ) as HTMLElement | null;
+        nextCell?.focus();
+        break;
+      }
+      case "ArrowUp": {
+        e.preventDefault();
+        const prevRow = document.querySelector(
+          `[data-index="${rowIndex - 1}"]`,
+        );
+        const prevCell = prevRow?.querySelector(
+          `[data-col-key="${colKey}"]`,
+        ) as HTMLElement | null;
+        prevCell?.focus();
+        break;
+      }
+      case "ArrowRight": {
+        e.preventDefault();
+        focusHorizontalSibling(e.currentTarget, "right");
+        break;
+      }
+      case "ArrowLeft": {
+        e.preventDefault();
+        focusHorizontalSibling(e.currentTarget, "left");
+        break;
+      }
+      case "Escape":
+        (e.currentTarget as HTMLElement).blur();
+        break;
+    }
+
+    if (!isPrintable(e)) return;
+
+    setIsEditing(true);
+  };
 
   const utils = api.useUtils();
 
@@ -72,43 +184,6 @@ export default function EditableCell({
     },
   });
 
-  useEffect(() => {
-    setCellValue(value);
-  }, [value]);
-
-  const handleDoubleClick = () => {
-    setIsEditing(true);
-  };
-
-  const handleBlur = () => {
-    setIsEditing(false);
-    if (cellValue !== value) {
-      updateRowDataMutation.mutate({
-        rowId,
-        key: columnKey,
-        value:
-          type === ColumnType.NUMBER ? Number(cellValue) : String(cellValue),
-      });
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log(e.target.value);
-    setCellValue(e.target.value);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      inputRef.current?.blur();
-    }
-  };
-
-  useEffect(() => {
-    if (isEditing) {
-      inputRef.current?.focus();
-    }
-  }, [isEditing]);
-
   const displayValue =
     type === ColumnType.NUMBER
       ? Number.isFinite(Number(cellValue))
@@ -118,9 +193,12 @@ export default function EditableCell({
 
   return (
     <div
-      className="flex h-full w-full items-center text-left"
-      onDoubleClick={handleDoubleClick}
-      suppressContentEditableWarning
+      className="flex h-full w-full items-center text-left focus:bg-white focus:outline-2 focus:outline-blue-500"
+      onDoubleClick={() => setIsEditing(true)}
+      onKeyDown={handleWrapperKeyDown}
+      onClick={(e) => e.currentTarget.focus()}
+      data-row-index={rowIndex}
+      data-col-key={colKey}
       tabIndex={0}
     >
       {isEditing ? (
@@ -134,7 +212,11 @@ export default function EditableCell({
           className="h-full w-full bg-white p-0 px-3 text-left text-sm"
         />
       ) : (
-        <span className="truncate px-3">{displayValue}</span>
+        <span
+          className={`truncate ${type === ColumnType.NUMBER ? "text-right" : "text-left"} w-full px-3`}
+        >
+          {displayValue}
+        </span>
       )}
     </div>
   );

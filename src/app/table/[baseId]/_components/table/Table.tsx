@@ -72,15 +72,16 @@ export default function Table({
           return data?.[col.key];
         },
         cell: (info) => {
-          const value = info.getValue();
           const meta = info.column.columnDef.meta as ColMeta | undefined;
           return (
             <EditableCell
               rowId={info.row.original.id}
               columnKey={col.key}
-              value={value as string | number}
+              value={info.getValue() as string | number}
               type={meta?.colType ?? ColumnType.TEXT}
               tableId={tableId}
+              rowIndex={info.row.index} // ✅ pass rowIndex here
+              colKey={col.key} // ✅ and colKey here
             />
           );
         },
@@ -103,19 +104,18 @@ export default function Table({
 
   const headerGroup = table.getHeaderGroups()[0]!;
 
+  const tableContainerRef = React.useRef<HTMLDivElement>(null);
+  const tableRef = React.useRef<HTMLTableElement>(null);
+
   return (
-    <div className="flex min-w-fit pr-40 pb-20">
-      <table className="bg-white text-sm">
-        {/* col styling */}
-        <colgroup>
-          <col className="w-[87px]" />
-          {cols.map((c) => (
-            <col key={c.id} className="w-[180px]" />
-          ))}
-        </colgroup>
+    <div className="flex min-w-fit pr-40 pb-20" ref={tableContainerRef}>
+      <table
+        className="border-separate border-spacing-0 bg-white text-sm"
+        ref={tableRef}
+      >
         <thead className="sticky top-0 z-20 cursor-default bg-white">
           <tr key={headerGroup.id}>
-            <th className="h-8 max-w-[87px] min-w-[87px] shadow-[inset_0_-1px_0_0_#d1d5db]">
+            <th className="h-8 max-w-[87px] min-w-[87px] border-b border-gray-200">
               {/* checkbox marker */}
               <div className="flex h-full items-center justify-center">
                 <div className="h-5 w-5 rounded border-1 border-gray-200 shadow" />
@@ -126,7 +126,7 @@ export default function Table({
               return (
                 <th
                   key={h.id}
-                  className="h-8 max-w-[180px] min-w-[180px] border-r border-gray-200 px-3 font-medium shadow-[inset_0_-1px_0_0_#d1d5db] hover:bg-gray-50"
+                  className="h-8 max-w-[180px] min-w-[180px] border-r border-b border-gray-200 px-3 font-medium hover:bg-gray-50"
                   onContextMenu={(e) => {
                     e.preventDefault();
                     setMenuCol({
@@ -191,23 +191,28 @@ export default function Table({
                     />
                   </div>
                 </td>
-                {row.getVisibleCells().map((cell) => (
-                  <td
-                    key={cell.id}
-                    className="h-8 max-w-[180px] min-w-[180px] cursor-default border-r border-b border-gray-200"
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      setMenuRow({
-                        open: true,
-                        x: e.clientX,
-                        y: e.clientY,
-                        rowId: row.id,
-                      });
-                    }}
-                  >
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
+                {row.getVisibleCells().map((cell) => {
+                  return (
+                    <td
+                      key={cell.id}
+                      className="h-8 max-w-[180px] min-w-[180px] cursor-default border-r border-b border-gray-200 focus:bg-white focus:outline-2 focus:outline-blue-500"
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setMenuRow({
+                          open: true,
+                          x: e.clientX,
+                          y: e.clientY,
+                          rowId: row.id,
+                        });
+                      }}
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext(),
+                      )}
+                    </td>
+                  );
+                })}
               </tr>
             );
           })}

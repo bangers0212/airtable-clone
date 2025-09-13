@@ -1,46 +1,64 @@
 "use client";
 
 import * as React from "react";
-import TableData from "./table/TableData";
 import TableTabs from "./table/TableTabs";
-// import ViewSidebar from "./table/TableViews";
+import ViewSidebar from "./table/ViewSidebar";
 import TableToolbar from "./table/TableToolbar";
-import type { SortingState, VisibilityState } from "@tanstack/react-table";
 import { api } from "~/trpc/react";
-import type { TableColumn, TableRow } from "@prisma/client";
 import TableContainer from "./table/TableContainer";
+import type { Filter, Condition } from "./table/toolbarButtons/Filter";
+import type { TableView, Table, TableColumn } from "@prisma/client";
+
+type ViewState = Pick<TableView, "id" | "name" | "searchQuery" | "position"> & {
+  sorting: { colKey: string; desc: boolean }[];
+  filters: { filters: Filter[]; operator: Condition };
+  columnVisibility: Record<string, boolean>;
+};
+
+type ProjectWithTables = {
+  id: string;
+  name: string;
+  tables: Pick<Table, "id" | "name">[];
+};
+
+type TableWithViews = {
+  id: string;
+  name: string;
+  columns: TableColumn[];
+  views: TableView[];
+};
 
 export default function TableManagementComponent({
   projectId,
 }: {
   projectId: string;
 }) {
-  // load project
-  const { data: project, isLoading: isProjectLoading } =
-    api.project.getById.useQuery({
-      id: projectId,
-    });
-
   const [activeTableId, setActiveTableId] = React.useState<string | null>(null);
+  const [activeView, setActiveView] = React.useState<ViewState | null>(null);
+  const utils = api.useUtils();
 
-  // active tables data
+  const {
+    data: project,
+    isLoading: isProjectLoading,
+    mutate: accessProject,
+  } = api.project.accessProject.useMutation();
+
+  const {
+    data: project,
+    isLoading: isProjectLoading,
+    mutate: accessProject,
+  } = api.project.accessProject.useMutation();
+
   const { data: tableInfo, isLoading: isTableInfoLoading } =
     api.table.getTableInfo.useQuery(
       { tableId: activeTableId! },
       { enabled: !!activeTableId },
     );
-  //   const { data: rows, isLoading: isRowsLoading } =
-  //     api.table.getRowsForTable.useQuery(
-  //       { tableId: activeTableId!, limit: 75, offset: 0 },
-  //       { enabled: !!activeTableId },
-  // );
-
-  const utils = api.useUtils();
 
   // creating a table
   const createTableMutation = api.table.createTable.useMutation({
     onSuccess: async (newTable) => {
-      await utils.project.getById.invalidate({ id: projectId });
+      await utils.project.accessProject.invalidate({ id: projectId });
       setActiveTableId(newTable.id);
     },
   });
@@ -49,15 +67,26 @@ export default function TableManagementComponent({
     createTableMutation.mutate({ projectId });
   };
 
-  // set first table as active
+  //   const createViewMutation = api.table.createView.useMutation({
+  //     onSuccess: async (newView) => {
+  //       await utils.table.getTableInfo.invalidate({ tableId: activeTableId! });
+  //       setActiveView(newView as ViewState);
+  //     },
+  //   });
+
   React.useEffect(() => {
-    if (activeTableId) return;
+    accessProject({ id: projectId });
+  }, [projectId, accessProject]);
 
-    const tables = project?.tables ?? [];
-    if (tables.length === 0) return;
+  React.useEffect(() => {
+    if (activeTableId || !project?.tables.length) return;
+    setActiveTableId(project.tables[0]!.id);
+  }, [activeTableId, project]);
 
-    setActiveTableId(tables[0]!.id);
-  }, [project, activeTableId]);
+  React.useEffect(() => {
+    if (!tableInfo?.views.length) return;
+    setActiveView(tableInfo.views[0] as unknown as ViewState);
+  }, [tableInfo]);
 
   // loading states
   if (isProjectLoading || isTableInfoLoading) {
@@ -66,8 +95,6 @@ export default function TableManagementComponent({
   if (!project || !tableInfo) {
     return <div>Project or table not found</div>;
   }
-
-  console.log(tableInfo);
 
   return (
     <div className="grid h-full grid-cols-[280px_1fr] grid-rows-[32px_47px_1fr]">
@@ -90,14 +117,12 @@ export default function TableManagementComponent({
         />
       </div>
 
-      {/* <ViewSidebar
-        views={activeTable.views.map((v) => ({ id: v.id, name: v.name }))}
-        activeViewId={activeTable.activeViewId}
-        onSelect={selectView}
-        onAdd={addView}+
-      /> */}
-
-      <aside className="row-span-2 border-r border-gray-200 bg-white"></aside>
+      <ViewSidebar
+        views={tableInfo.views.map((v) => ({ id: v.id, name: v.name }))}
+        // activeViewId={activeTable.activeViewId}
+        // onSelect={selectView}
+        // onAdd={addView}
+      />
 
       <div className="h-full overflow-auto">
         <TableContainer

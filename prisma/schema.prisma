@@ -81,6 +81,7 @@ model Table {
     
     nextRowPos   Int   @default(0)
     nextColPos   Int   @default(0)
+    nextViewPos  Int   @default(0)
 
     @@index([projectId])
 }
@@ -112,15 +113,17 @@ model TableRow {
 }
 
 model TableView {
-  id        String   @id @default(cuid())
-  tableId   String
-  name      String   @default("Grid view")
-  // { search?: string, hidden?: string[], filters?: [...], sorts?: [...] }
-  config    Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+    id                String   @id @default(cuid())
+    tableId           String
+    name              String   @default("Grid view")
+    position          Int
 
-  table Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
+    sorting           Json
+    filters           Json
+    searchQuery       String?
+    columnVisibility  Json
 
-  @@index([tableId])
+    table Table @relation(fields: [tableId], references: [id], onDelete: Cascade)
+
+    @@index([tableId])
 }

@@ -23,7 +23,7 @@ export default function HeaderContextMenu({
   React.useEffect(() => {
     if (!state.open) return;
     const onEsc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    const onClick = (e: MouseEvent) => onClose();
+    const onClick = (_: MouseEvent) => onClose();
     const onScroll = () => onClose();
     window.addEventListener("keydown", onEsc);
     window.addEventListener("click", onClick);

@@ -14,7 +14,7 @@ export default function TableTabs({
   onAdd: () => void;
 }) {
   return (
-    <div className="flex h-8 items-stretch border-b border-gray-200 bg-gray-100">
+    <div className="flex h-8 items-stretch overflow-hidden border-b border-gray-200 bg-gray-100">
       <ul role="tablist" aria-label="Tables" className="flex items-stretch">
         {tabs.map((t, i) => {
           const isActive = t.id === activeId;

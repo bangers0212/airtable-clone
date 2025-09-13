@@ -33,7 +33,9 @@ export default function Tabs({ tabs, initialTab, onTabChange }: TabsProps) {
           return (
             <button
               key={tab.value}
-              onClick={() => handleSelect(tab.value)}
+              onClick={() => {
+                handleSelect(tab.value);
+              }}
               className={`cursor-pointer border-b-2 px-1 py-4 text-sm font-normal whitespace-nowrap transition ${
                 isCurrent
                   ? "border-black"
